@@ -3,6 +3,8 @@ package lwrbTest;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 
+import org.geotools.data.simple.SimpleFeatureCollection;
+import org.jgrasstools.gears.io.shapefile.OmsShapefileFeatureReader;
 import org.jgrasstools.gears.io.timedependent.OmsTimeSeriesIteratorReader;
 import org.jgrasstools.gears.io.timedependent.OmsTimeSeriesIteratorWriter;
 import org.jgrasstools.gears.libs.monitor.PrintStreamProgressMonitor;
@@ -40,6 +42,10 @@ public class TestLwrb extends HMTestCase{
 		OmsTimeSeriesIteratorReader humidityReader = getTimeseriesReader(inPathToHumidity, fId, startDate, endDate, timeStepMinutes);
 		OmsTimeSeriesIteratorReader CIReader = getTimeseriesReader(inPathToCI, fId, startDate, endDate, timeStepMinutes);
 
+		OmsShapefileFeatureReader stationsReader = new OmsShapefileFeatureReader();
+		stationsReader.file = "resources/Input/stations.shp";
+		stationsReader.readFeatureCollection();
+		SimpleFeatureCollection stationsFC = stationsReader.geodata;
 
 		OmsTimeSeriesIteratorWriter writer_down = new OmsTimeSeriesIteratorWriter();
 		OmsTimeSeriesIteratorWriter writer_up = new OmsTimeSeriesIteratorWriter();
@@ -62,10 +68,11 @@ public class TestLwrb extends HMTestCase{
 		writer_long.fileNovalue="-9999";
 
 		Lwrb lwrb= new Lwrb();
+		lwrb.inStations = stationsFC;
+		lwrb.fStationsid = "cat";
 
 		while( airTReader.doProcess  ) { 
 
-			lwrb.stationsId=86;
 			lwrb.X=0.52;
 			lwrb.Y=0.21;
 			lwrb.model="2";
@@ -76,7 +83,7 @@ public class TestLwrb extends HMTestCase{
             
 			airTReader.nextRecord();	
 			HashMap<Integer, double[]> id2ValueMap = airTReader.outData;
-			lwrb.inAirTempratureValues= id2ValueMap;
+			lwrb.inAirTemperatureValues= id2ValueMap;
 
 			soilTReader.nextRecord();
 			id2ValueMap = soilTReader.outData;

@@ -19,9 +19,15 @@
 package lwrbPointCase;
 
 
+import org.geotools.data.simple.SimpleFeatureCollection;
+import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.SchemaException;
 import org.jgrasstools.gears.libs.modules.JGTConstants;
+
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Set;
+
 import static org.jgrasstools.gears.libs.modules.JGTConstants.isNovalue;
 import oms3.annotations.Author;
 import oms3.annotations.Description;
@@ -37,6 +43,10 @@ import oms3.annotations.Status;
 import oms3.annotations.Unit;
 
 import org.jgrasstools.gears.libs.modules.JGTModel;
+import org.opengis.feature.simple.SimpleFeature;
+
+import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.Geometry;
 
 
 
@@ -58,7 +68,7 @@ public class Lwrb extends JGTModel {
 
 	@Description("Air temperature input Hashmap")
 	@In
-	public HashMap<Integer, double[]> inAirTempratureValues;
+	public HashMap<Integer, double[]> inAirTemperatureValues;
 
 	@Description("Soil temperature input value") 
 	@Unit("°C")
@@ -99,9 +109,19 @@ public class Lwrb extends JGTModel {
 	@In
 	public double Z;
 
-	@Description("The id of the station investigated")
+	@Description("The shape file with the station measuremnts")
 	@In
-	public int stationsId;
+	public SimpleFeatureCollection inStations;
+
+	@Description("The name of the field containing the ID of the station in the shape file")
+	@In
+	public String fStationsid;
+
+	@Description(" The vetor containing the id of the station")
+	Object []idStations;
+
+	@Description("the linked HashMap with the coordinate of the stations")
+	LinkedHashMap<Integer, Coordinate> stationCoordinates;
 
 	@Description("Soil emissivity")
 	@Unit("-")
@@ -159,37 +179,76 @@ public class Lwrb extends JGTModel {
 	 */
 	@Execute
 	public void process() throws Exception { 
+
+		// starting from the shp file containing the stations, get the coordinate
+		//of each station
+		stationCoordinates = getCoordinate(inStations, fStationsid);
+
+		//create the set of the coordinate of the station, so we can 
+		//iterate over the set
+		Set<Integer> stationCoordinatesIdSet = stationCoordinates.keySet();
+
+
+		// trasform the list of idStation into an array
+		idStations= stationCoordinatesIdSet.toArray();
+
+
+		// iterate over the list of the stations
+		for (int i=0;i<idStations.length;i++){
 			
-		/**Input data reading*/
-	     airTemperature = inAirTempratureValues.get(stationsId)[0];
-	     if (isNovalue(airTemperature)) airTemperature=0;
-	     
-	     
-		 soilTemperature = inSoilTempratureValues.get(stationsId)[0];
-		 if (isNovalue(soilTemperature)) soilTemperature= 0;
-		 
-		 humidity = inHumidityValues.get(stationsId)[0];
-		 if (isNovalue(humidity)) humidity= pRH;
-		 
-		 clearnessIndex = inClearnessIndexValues.get(stationsId)[0];
-		 if (isNovalue(clearnessIndex )) clearnessIndex = 1;
+			airTemperature=inAirTemperatureValues.get(idStations[i])[0];
+			
+			soilTemperature = inSoilTempratureValues.get(idStations[i])[0];
+			
+			humidity = inHumidityValues.get(idStations[i])[0];
+			if (isNovalue(humidity)) humidity= pRH;
 
-		
-		
-		/**Computation of the downwelling, upwelling and longwave:
-		 * if there is no value in the input data, there will be no value also in
-		 * the output*/
-		double downwellingALLSKY=(airTemperature==0)? Double.NaN:computeDownwelling(model,airTemperature,humidity/100, clearnessIndex);
-		double upwelling=(soilTemperature==0)? Double.NaN:computeUpwelling(soilTemperature);
-		double longwave=downwellingALLSKY+upwelling;
+			clearnessIndex = inClearnessIndexValues.get(idStations[i])[0];
+			if (isNovalue(clearnessIndex )) clearnessIndex = 1;
 
 
-		/**Store results in Hashmaps*/
-		storeResult(downwellingALLSKY,upwelling,longwave);
 
+			/**Computation of the downwelling, upwelling and longwave:
+			 * if there is no value in the input data, there will be no value also in
+			 * the output*/
+			double downwellingALLSKY=(isNovalue(airTemperature))? Double.NaN:
+				computeDownwelling(model,airTemperature,humidity/100, clearnessIndex);
+			double upwelling=(isNovalue(soilTemperature))? Double.NaN:computeUpwelling(soilTemperature);
+			double longwave=downwellingALLSKY+upwelling;
+
+
+			/**Store results in Hashmaps*/
+			storeResult((Integer)idStations[i],downwellingALLSKY,upwelling,longwave);
+		}
 
 	}
 
+	/**
+	 * Gets the coordinate given the shp file and the field name in the shape with the coordinate of the station.
+	 *
+	 * @param collection is the shp file with the stations
+	 * @param idField is the name of the field with the id of the stations 
+	 * @return the coordinate of each station
+	 * @throws Exception the exception in a linked hash map
+	 */
+	private LinkedHashMap<Integer, Coordinate> getCoordinate(SimpleFeatureCollection collection, String idField)
+			throws Exception {
+		LinkedHashMap<Integer, Coordinate> id2CoordinatesMap = new LinkedHashMap<Integer, Coordinate>();
+		FeatureIterator<SimpleFeature> iterator = collection.features();
+		Coordinate coordinate = null;
+		try {
+			while (iterator.hasNext()) {
+				SimpleFeature feature = iterator.next();
+				int stationNumber = ((Number) feature.getAttribute(idField)).intValue();
+				coordinate = ((Geometry) feature.getDefaultGeometry()).getCentroid().getCoordinate();
+				id2CoordinatesMap.put(stationNumber, coordinate);
+			}
+		} finally {
+			iterator.close();
+		}
+
+		return id2CoordinatesMap;
+	}
 
 
 	/**
@@ -242,12 +301,12 @@ public class Lwrb extends JGTModel {
 	 * @param longwave: the longwave radiation
 	 * @throws SchemaException 
 	 */
-	private void storeResult(double downwellingALLSKY, double upwelling,double longwave) 
+	private void storeResult(Integer ID,double downwellingALLSKY, double upwelling,double longwave) 
 			throws SchemaException {
 
-		outHMlongwaveDownwelling.put(stationsId, new double[]{downwellingALLSKY});
-		outHMlongwaveUpwelling.put(stationsId, new double[]{upwelling});
-		outHMlongwave.put(stationsId, new double[]{longwave});
+		outHMlongwaveDownwelling.put(ID, new double[]{downwellingALLSKY});
+		outHMlongwaveUpwelling.put(ID, new double[]{upwelling});
+		outHMlongwave.put(ID, new double[]{longwave});
 	}
 
 

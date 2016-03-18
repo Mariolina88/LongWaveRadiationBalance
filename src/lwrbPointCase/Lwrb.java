@@ -200,8 +200,9 @@ public class Lwrb extends JGTModel {
 			
 			soilTemperature = inSoilTempratureValues.get(idStations[i])[0];
 			
+			humidity= pRH;
+			if (inHumidityValues != null)
 			humidity = inHumidityValues.get(idStations[i])[0];
-			if (isNovalue(humidity)) humidity= pRH;
 
 			clearnessIndex = inClearnessIndexValues.get(idStations[i])[0];
 			if (isNovalue(clearnessIndex )) clearnessIndex = 1;

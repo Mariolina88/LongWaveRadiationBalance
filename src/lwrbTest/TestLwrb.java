@@ -89,9 +89,10 @@ public class TestLwrb extends HMTestCase{
 			id2ValueMap = soilTReader.outData;
 			lwrb.inSoilTempratureValues = id2ValueMap;
 
+			/*
 			humidityReader.nextRecord();
 			id2ValueMap = humidityReader.outData;
-			lwrb.inHumidityValues= id2ValueMap;
+			lwrb.inHumidityValues= id2ValueMap;*/
 
 			CIReader.nextRecord();
 			id2ValueMap = CIReader.outData;
@@ -132,7 +133,7 @@ public class TestLwrb extends HMTestCase{
 		}
 		airTReader.close();
 		soilTReader.close();    
-		humidityReader.close();     
+		//humidityReader.close();     
 		CIReader.close();
 
 	}

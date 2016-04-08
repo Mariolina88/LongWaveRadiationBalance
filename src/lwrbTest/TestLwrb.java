@@ -42,10 +42,6 @@ public class TestLwrb extends HMTestCase{
 		OmsTimeSeriesIteratorReader humidityReader = getTimeseriesReader(inPathToHumidity, fId, startDate, endDate, timeStepMinutes);
 		OmsTimeSeriesIteratorReader CIReader = getTimeseriesReader(inPathToCI, fId, startDate, endDate, timeStepMinutes);
 
-		OmsShapefileFeatureReader stationsReader = new OmsShapefileFeatureReader();
-		stationsReader.file = "resources/Input/stations.shp";
-		stationsReader.readFeatureCollection();
-		SimpleFeatureCollection stationsFC = stationsReader.geodata;
 
 		OmsTimeSeriesIteratorWriter writer_down = new OmsTimeSeriesIteratorWriter();
 		OmsTimeSeriesIteratorWriter writer_up = new OmsTimeSeriesIteratorWriter();
@@ -68,8 +64,7 @@ public class TestLwrb extends HMTestCase{
 		writer_long.fileNovalue="-9999";
 
 		Lwrb lwrb= new Lwrb();
-		lwrb.inStations = stationsFC;
-		lwrb.fStationsid = "cat";
+
 
 		while( airTReader.doProcess  ) { 
 

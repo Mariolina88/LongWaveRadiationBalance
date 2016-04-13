@@ -3,7 +3,9 @@ package lwrbTest;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 
+import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.data.simple.SimpleFeatureCollection;
+import org.jgrasstools.gears.io.rasterreader.OmsRasterReader;
 import org.jgrasstools.gears.io.shapefile.OmsShapefileFeatureReader;
 import org.jgrasstools.gears.io.timedependent.OmsTimeSeriesIteratorReader;
 import org.jgrasstools.gears.io.timedependent.OmsTimeSeriesIteratorWriter;
@@ -41,6 +43,18 @@ public class TestLwrb extends HMTestCase{
 		OmsTimeSeriesIteratorReader soilTReader = getTimeseriesReader(inPathToSoilT, fId, startDate, endDate, timeStepMinutes);
 		OmsTimeSeriesIteratorReader humidityReader = getTimeseriesReader(inPathToHumidity, fId, startDate, endDate, timeStepMinutes);
 		OmsTimeSeriesIteratorReader CIReader = getTimeseriesReader(inPathToCI, fId, startDate, endDate, timeStepMinutes);
+		
+		OmsShapefileFeatureReader stationsReader = new OmsShapefileFeatureReader();
+		stationsReader.file = "resources/Input/stations.shp";
+		stationsReader.readFeatureCollection();
+		SimpleFeatureCollection stationsFC = stationsReader.geodata;
+		
+		OmsRasterReader SKYreader = new OmsRasterReader();
+		SKYreader.file = "resources/Input/skyview.asc";
+		SKYreader.fileNovalue = -9999.0;
+		SKYreader.geodataNovalue = Double.NaN;
+		SKYreader.process();
+		GridCoverage2D skyviewfactor = SKYreader.outRaster;
 
 
 		OmsTimeSeriesIteratorWriter writer_down = new OmsTimeSeriesIteratorWriter();
@@ -74,6 +88,10 @@ public class TestLwrb extends HMTestCase{
 			lwrb.epsilonS=0.98;
 			lwrb.A_Cloud=0;
 			lwrb.B_Cloud=1;
+			
+			lwrb.inSkyview = skyviewfactor;
+			lwrb.inStations = stationsFC;
+			lwrb.fStationsid="cat";
 
             
 			airTReader.nextRecord();	
@@ -84,10 +102,10 @@ public class TestLwrb extends HMTestCase{
 			id2ValueMap = soilTReader.outData;
 			lwrb.inSoilTempratureValues = id2ValueMap;
 
-			/*
+			
 			humidityReader.nextRecord();
 			id2ValueMap = humidityReader.outData;
-			lwrb.inHumidityValues= id2ValueMap;*/
+			lwrb.inHumidityValues= id2ValueMap;
 
 			CIReader.nextRecord();
 			id2ValueMap = CIReader.outData;
@@ -128,7 +146,7 @@ public class TestLwrb extends HMTestCase{
 		}
 		airTReader.close();
 		soilTReader.close();    
-		//humidityReader.close();     
+		humidityReader.close();     
 		CIReader.close();
 
 	}

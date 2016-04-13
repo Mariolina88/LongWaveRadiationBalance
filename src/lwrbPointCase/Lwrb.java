@@ -20,13 +20,20 @@ package lwrbPointCase;
 
 
 
+import org.geotools.coverage.grid.GridCoverage2D;
+import org.geotools.data.simple.SimpleFeatureCollection;
+import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.SchemaException;
+import org.geotools.geometry.DirectPosition2D;
 import org.jgrasstools.gears.libs.modules.JGTConstants;
 
+import java.awt.image.RenderedImage;
+import java.awt.image.WritableRaster;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.Set;
-import java.util.Map.Entry;
+
 
 import static org.jgrasstools.gears.libs.modules.JGTConstants.isNovalue;
 import oms3.annotations.Author;
@@ -43,9 +50,14 @@ import oms3.annotations.Status;
 import oms3.annotations.Unit;
 
 import org.jgrasstools.gears.libs.modules.JGTModel;
-
+import org.jgrasstools.gears.utils.coverage.CoverageUtilities;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.geometry.DirectPosition;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.operation.MathTransform;
 
 import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.Geometry;
 
 
 
@@ -96,6 +108,11 @@ public class Lwrb extends JGTModel {
 	@In
 	public HashMap<Integer, double[]> inClearnessIndexValues;
 
+	@Description("The map of the skyview factor")
+	@In
+	public GridCoverage2D inSkyview;
+	WritableRaster skyviewfactorWR;
+
 	@Description("X parameter of the literature formulation")
 	@In
 	public double X; 
@@ -141,6 +158,26 @@ public class Lwrb extends JGTModel {
 	@In
 	public double B_Cloud;
 
+	@Description("It is needed as index of the time step")
+	int step;
+
+	@Description("The shape file with the station measuremnts")
+	@In
+	public SimpleFeatureCollection inStations;
+
+	@Description("The name of the field containing the ID of the station in the shape file")
+	@In
+	public String fStationsid;
+	
+	@Description("List of the indeces of the columns of the station in the map")
+	ArrayList <Integer> columnStation= new ArrayList <Integer>();
+
+	@Description("List of the indeces of the rows of the station in the map")
+	ArrayList <Integer> rowStation= new ArrayList <Integer>();
+	
+	@Description(" The vetor containing the id of the station")
+	Object []idStations;
+
 	@Description("Stefan-Boltzaman costant")
 	private static final double ConstBoltz = 5.670373 * Math.pow(10, -8);
 
@@ -167,74 +204,105 @@ public class Lwrb extends JGTModel {
 	 */
 	@Execute
 	public void process() throws Exception {
+
+		if(step==0){
+			RenderedImage inSkyviewRenderedImage = inSkyview.getRenderedImage();
+			skyviewfactorWR = CoverageUtilities.replaceNovalue(inSkyviewRenderedImage, -9999.0);
+			inSkyviewRenderedImage = null;
+
+			// starting from the shp file containing the stations, get the coordinate
+			//of each station
+			stationCoordinates = getCoordinate(inStations, fStationsid);
+		}
+
+		// computing the reference system of the input DEM
+		CoordinateReferenceSystem sourceCRS = inSkyview.getCoordinateReferenceSystem2D();
+		//  from pixel coordinates (in coverage image) to geographic coordinates (in coverage CRS)
+		MathTransform transf = inSkyview.getGridGeometry().getCRSToGrid2D();
+
+
+		//create the set of the coordinate of the station, so we can 
+		//iterate over the set			
+		Iterator<Integer> idIterator = stationCoordinates.keySet().iterator();
 		
-		checkNull(inAirTemperatureValues);
-
-		// reading the ID of all the stations 
-		Set<Entry<Integer, double[]>> entrySet = inAirTemperatureValues.entrySet();
+		// trasform the list of idStation into an array
+		idStations= stationCoordinates.keySet().toArray();
 
 
-		// iterate over the list of the stations
-		for (Entry<Integer, double[]> entry : entrySet){
-			Integer ID = entry.getKey();
-			
-			airTemperature=inAirTemperatureValues.get(ID)[0];
-			
-			soilTemperature = inSoilTempratureValues.get(ID)[0];
-			
+		// iterate over the list of the stations and detect their position in the map
+		for (int i=0;i<idStations.length;i++){
+
+			// compute the coordinate of the station from the linked hashMap
+			Coordinate coordinate = (Coordinate) stationCoordinates.get(idIterator.next());
+
+			// define the position, according to the CRS, of the station in the map
+			DirectPosition point = new DirectPosition2D(sourceCRS, coordinate.x, coordinate.y);
+
+			// trasform the position in two the indices of row and column 
+			DirectPosition gridPoint = transf.transform(point, null);
+
+			// add the indices to a list
+			columnStation.add((int) gridPoint.getCoordinate()[0]);
+			rowStation.add((int) gridPoint.getCoordinate()[1]);
+
+			airTemperature=inAirTemperatureValues.get(idStations[i])[0];
+
+			soilTemperature = inSoilTempratureValues.get(idStations[i])[0];
+
 			humidity= pRH;
 			if (inHumidityValues != null)
-			humidity = inHumidityValues.get(ID)[0];
+				humidity = inHumidityValues.get(idStations[i])[0];
 
-			clearnessIndex = inClearnessIndexValues.get(ID)[0];
+			clearnessIndex = inClearnessIndexValues.get(idStations[i])[0];
 			if (isNovalue(clearnessIndex )) clearnessIndex = 1;
 
-
+			double skyviewvalue=skyviewfactorWR.getSampleDouble(columnStation.get(i), rowStation.get(i),0);
 
 			/**Computation of the downwelling, upwelling and longwave:
 			 * if there is no value in the input data, there will be no value also in
 			 * the output*/
-			double downwellingALLSKY=(isNovalue(airTemperature))? Double.NaN:
-				computeDownwelling(model,airTemperature,humidity/100, clearnessIndex);
+			
 			double upwelling=(isNovalue(soilTemperature))? Double.NaN:computeUpwelling(soilTemperature);
+			
+			
+			double downwellingALLSKY=(isNovalue(airTemperature))? Double.NaN:
+				computeDownwelling(model,airTemperature,humidity/100,skyviewvalue,upwelling);
+			
 			double longwave=downwellingALLSKY+upwelling;
 
 
 			/**Store results in Hashmaps*/
-			storeResult(ID,downwellingALLSKY,upwelling,longwave);
+			storeResult((Integer)idStations[i],downwellingALLSKY,upwelling,longwave);
 		}
-
+		step++;
 	}
 
 
 	/**
-	 * Compute downwelling longwave radiation.
+	 * Gets the coordinate given the shp file and the field name in the shape with the coordinate of the station.
 	 *
-	 * @param model: the string containing the number of the model
-	 * @param airTemperature:  the air temperature input
-	 * @param humidity: the humidity input
-	 * @param clearnessIndex: the clearness index input
-	 * @return the double value of the all sky downwelling
+	 * @param collection is the shp file with the stations
+	 * @param idField is the name of the field with the id of the stations 
+	 * @return the coordinate of each station
+	 * @throws Exception the exception in a linked hash map
 	 */
-	private double computeDownwelling(String model,double airTemperature, 
-			double humidity, double clearnessIndex){
+	private LinkedHashMap<Integer, Coordinate> getCoordinate(SimpleFeatureCollection collection, String idField)
+			throws Exception {
+		LinkedHashMap<Integer, Coordinate> id2CoordinatesMap = new LinkedHashMap<Integer, Coordinate>();
+		FeatureIterator<SimpleFeature> iterator = collection.features();
+		Coordinate coordinate = null;
+		try {
+			while (iterator.hasNext()) {
+				SimpleFeature feature = iterator.next();
+				int stationNumber = ((Number) feature.getAttribute(idField)).intValue();
+				coordinate = ((Geometry) feature.getDefaultGeometry()).getCentroid().getCoordinate();
+				id2CoordinatesMap.put(stationNumber, coordinate);
+			}
+		} finally {
+			iterator.close();
+		}
 
-		/**e is the screen-level water-vapor pressure*/
-		double e = humidity *6.11 * Math.pow(10, (7.5 * airTemperature) / (237.3 + airTemperature)) / 10;
-
-		/**compute the clear sky emissivity*/
-		modelCS=SimpleModelFactory.createModel(model,X,Y,Z,airTemperature+ 273.15,e);
-		double epsilonCS=modelCS.epsilonCSValues();
-
-		/**compute the downwelling in clear sky conditions*/
-		double downwellingCS=epsilonCS* ConstBoltz* Math.pow(airTemperature+ 273.15, 4);
-
-		/**compute the cloudness index*/
-		double cloudnessIndex = 1 + A_Cloud* Math.pow(clearnessIndex, B_Cloud);
-
-		/**compute the downwelling in all-sky conditions*/
-		return downwellingCS * cloudnessIndex;
-
+		return id2CoordinatesMap;
 	}
 
 	/**
@@ -250,6 +318,40 @@ public class Lwrb extends JGTModel {
 	}
 
 	/**
+	 * Compute downwelling longwave radiation.
+	 *
+	 * @param model: the string containing the number of the model
+	 * @param airTemperature:  the air temperature input
+	 * @param humidity: the humidity input
+	 * @param clearnessIndex: the clearness index input
+	 * @return the double value of the all sky downwelling
+	 */
+	private double computeDownwelling(String model,double airTemperature, 
+			double humidity, double skyviewvalue, double upwelling){
+
+		/**e is the screen-level water-vapor pressure*/
+		double e = humidity *6.11 * Math.pow(10, (7.5 * airTemperature) / (237.3 + airTemperature)) / 10;
+
+		/**compute the clear sky emissivity*/
+		modelCS=SimpleModelFactory.createModel(model,X,Y,Z,airTemperature+ 273.15,e);
+		double epsilonCS=modelCS.epsilonCSValues();
+
+		/**compute the downwelling in clear sky conditions*/
+		double downwellingCS=epsilonCS* ConstBoltz* Math.pow(airTemperature+ 273.15, 4);
+		
+		/**correct downwelling clear sky for sloping terrain*/
+		downwellingCS=downwellingCS*skyviewvalue+upwelling*(1-skyviewvalue);
+
+		/**compute the cloudness index*/
+		double cloudnessIndex = 1 + A_Cloud* Math.pow(clearnessIndex, B_Cloud);
+
+		/**compute the downwelling in all-sky conditions*/
+		return downwellingCS * cloudnessIndex;
+
+	}
+
+
+	/**
 	 * Store result in given hashpmaps.
 	 *
 	 * @param downwellingALLSKY: the downwelling radiation in all sky conditions
@@ -257,7 +359,7 @@ public class Lwrb extends JGTModel {
 	 * @param longwave: the longwave radiation
 	 * @throws SchemaException 
 	 */
-	private void storeResult(Integer ID,double downwellingALLSKY, double upwelling,double longwave) 
+	private void storeResult(int ID,double downwellingALLSKY, double upwelling,double longwave) 
 			throws SchemaException {
 
 		outHMlongwaveDownwelling.put(ID, new double[]{downwellingALLSKY});

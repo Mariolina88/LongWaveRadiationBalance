@@ -36,7 +36,6 @@ public class TestLwrb extends HMTestCase{
 
 		String pathToDownwelling= "resources/output/downwelling_model1.csv";
 		String pathToUpwelling= "resources/output/upwelling_model1.csv";
-		String pathToLongwave= "resources/output/longwave_model1.csv";
 
 
 		OmsTimeSeriesIteratorReader airTReader = getTimeseriesReader(inPathToAirT, fId, startDate, endDate, timeStepMinutes);
@@ -59,7 +58,7 @@ public class TestLwrb extends HMTestCase{
 
 		OmsTimeSeriesIteratorWriter writer_down = new OmsTimeSeriesIteratorWriter();
 		OmsTimeSeriesIteratorWriter writer_up = new OmsTimeSeriesIteratorWriter();
-		OmsTimeSeriesIteratorWriter writer_long = new OmsTimeSeriesIteratorWriter();
+
 
 
 		writer_down.file = pathToDownwelling;
@@ -72,10 +71,6 @@ public class TestLwrb extends HMTestCase{
 		writer_up.tTimestep = timeStepMinutes;
 		writer_up.fileNovalue="-9999";
 
-		writer_long.file = pathToLongwave;
-		writer_long.tStart = startDate;
-		writer_long.tTimestep = timeStepMinutes;
-		writer_long.fileNovalue="-9999";
 
 		Lwrb lwrb= new Lwrb();
 
@@ -116,7 +111,6 @@ public class TestLwrb extends HMTestCase{
 
 			HashMap<Integer, double[]> outHMdown = lwrb.outHMlongwaveDownwelling;
 			HashMap<Integer, double[]> outHMup = lwrb.outHMlongwaveUpwelling;
-			HashMap<Integer, double[]> outHMlong = lwrb.outHMlongwave;
 
 
 
@@ -134,12 +128,6 @@ public class TestLwrb extends HMTestCase{
 				writer_up.close();
 			}
 
-			writer_long.inData = outHMlong;
-			writer_long.writeNextLine();
-
-			if (pathToLongwave != null) {
-				writer_long.close();
-			}
 
 
 

@@ -325,7 +325,7 @@ public class Lwrb extends JGTModel {
 	private double computeDownwelling(String model,double airTemperature, 
 			double humidity, double skyviewvalue, double upwelling){
 
-		/**e is the screen-level water-vapor pressure*/
+		/**e is the screen-level water-vapor pressure in kPa*/
 		double e = humidity *6.11 * Math.pow(10, (7.5 * airTemperature) / (237.3 + airTemperature)) / 10;
 
 		/**compute the clear sky emissivity*/

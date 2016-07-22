@@ -50,7 +50,8 @@ public class Model8Konzelman implements Model{
 	 */
 	public double epsilonCSValues() {
 		
-		return  X + Y * Math.pow((e / 10) / airTemperature, (1.0 / 8.0));
+		/** e must be converted in Pascal from kPa*/
+		return  X + Y * Math.pow((e *1000) / airTemperature, (1.0 / 8.0));
 	}
 
 }

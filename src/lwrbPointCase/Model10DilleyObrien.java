@@ -36,6 +36,8 @@ public class Model10DilleyObrien implements Model{
 
 	/** The input e */
 	double e;
+	
+	double ConstBoltz = 5.670373 * Math.pow(10, -8);
 
 
 	public Model10DilleyObrien(double X, double Y, double Z, double airTemperature, double e){
@@ -55,7 +57,7 @@ public class Model10DilleyObrien implements Model{
 	 */
 	public double epsilonCSValues() {
 		double w= 4650 * e / airTemperature;
-		return (X + Y * Math.pow(airTemperature / 273.16, 6) + Z* Math.pow((w / 25), 0.5));
+		return (X + Y * Math.pow(airTemperature / 273.16, 6) + Z* Math.pow((w / 25), 0.5))/(ConstBoltz* Math.pow(airTemperature+ 273.15, 4));
 
 	}
 

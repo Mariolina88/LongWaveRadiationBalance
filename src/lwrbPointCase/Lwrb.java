@@ -339,7 +339,7 @@ public class Lwrb extends JGTModel {
 		downwellingCS=downwellingCS*skyviewvalue+upwelling*(1-skyviewvalue);
 
 		/**compute the cloudness index*/
-		double cloudnessIndex = 1 + A_Cloud* Math.pow(clearnessIndex, B_Cloud);
+		double cloudnessIndex = 1 + A_Cloud* Math.pow((1-clearnessIndex), B_Cloud);
 
 		/**compute the downwelling in all-sky conditions*/
 		return downwellingCS * cloudnessIndex;

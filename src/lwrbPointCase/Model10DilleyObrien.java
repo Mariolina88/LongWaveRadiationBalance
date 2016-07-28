@@ -1,4 +1,5 @@
 /*
+
  * GNU GPL v3 License
  *
  * Copyright 2015 Marialaura Bancheri
@@ -57,7 +58,7 @@ public class Model10DilleyObrien implements Model{
 	 */
 	public double epsilonCSValues() {
 		double w= 4650 * e / airTemperature;
-		return (X + Y * Math.pow(airTemperature / 273.16, 6) + Z* Math.pow((w / 25), 0.5))/(ConstBoltz* Math.pow(airTemperature+ 273.15, 4));
+		return (X + Y * Math.pow(airTemperature / 273.16, 6) + Z* Math.pow((w / 25), 0.5))/(ConstBoltz* Math.pow(airTemperature, 4));
 
 	}
 

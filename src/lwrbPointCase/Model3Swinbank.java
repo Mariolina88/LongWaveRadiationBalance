@@ -47,7 +47,7 @@ public class Model3Swinbank implements Model{
 	 * @return the double value of the clear sky emissivity
 	 */
 	public double epsilonCSValues() {
-		return (X * Math.pow(10, -13.0) * Math.pow(airTemperature, 6))/(ConstBoltz* Math.pow(airTemperature+ 273.15, 4));
+		return (X * Math.pow(10, -13.0) * Math.pow(airTemperature, 6))/(ConstBoltz* Math.pow(airTemperature, 4));
 
 	}
 

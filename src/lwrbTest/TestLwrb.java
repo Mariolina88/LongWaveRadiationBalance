@@ -77,9 +77,9 @@ public class TestLwrb extends HMTestCase{
 
 		while( airTReader.doProcess  ) { 
 
-			lwrb.X=0.52;
-			lwrb.Y=0.21;
-			lwrb.model="2";
+			lwrb.X=-83.89;
+			lwrb.Y=1.02;
+			lwrb.model="7";
 			lwrb.epsilonS=0.98;
 			lwrb.A_Cloud=0;
 			lwrb.B_Cloud=1;

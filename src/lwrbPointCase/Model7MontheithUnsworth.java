@@ -49,7 +49,7 @@ public class Model7MontheithUnsworth implements Model{
 	 * @return the double value of the clear sky emissivity
 	 */
 	public double epsilonCSValues() {
-		return (X + Y * ConstBoltz * Math.pow(airTemperature, 4));
+		return (X + Y * ConstBoltz * Math.pow(airTemperature, 4))/(ConstBoltz* Math.pow(airTemperature, 4));
 
 	}
 

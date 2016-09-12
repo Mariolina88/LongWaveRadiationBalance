@@ -260,10 +260,13 @@ public class Lwrb extends JGTModel {
 			 * the output*/
 			
 			double upwelling=(isNovalue(soilTemperature))? Double.NaN:computeUpwelling(soilTemperature);
+			upwelling=(upwelling<0)? Double.NaN:upwelling;
 			
 			
 			double downwellingALLSKY=(isNovalue(airTemperature))? Double.NaN:
 				computeDownwelling(model,airTemperature,humidity/100,skyviewvalue,upwelling);
+			
+			downwellingALLSKY=(downwellingALLSKY<0)? Double.NaN:downwellingALLSKY;
 			
 
 

@@ -20,8 +20,8 @@ public class TestLwrb extends HMTestCase{
 
 	public TestLwrb() throws Exception {
 
-		String startDate = "2004-06-14 00:00";
-		String endDate = "2004-06-16 00:00";
+		String startDate = "2006-01-01 00:00";
+		String endDate = "2006-12-31 00:00";
 		int timeStepMinutes = 60;
 		String fId = "ID";
 
@@ -29,10 +29,10 @@ public class TestLwrb extends HMTestCase{
 		PrintStreamProgressMonitor pm = new PrintStreamProgressMonitor(System.out, System.out);
 
 
-		String inPathToAirT = "resources/input/Taria.csv";
-		String inPathToSoilT = "resources/input/Tsuolo.csv";
-		String inPathToHumidity = "resources/input/H.csv";
-		String inPathToCI = "resources/input/ClearnessIndex.csv";
+		String inPathToAirT = "/Users/marialaura/Dropbox/SWRB/dottorato/OMS_Project_LWRB/data/37/Taria.csv";
+		String inPathToSoilT = "/Users/marialaura/Dropbox/SWRB/dottorato/OMS_Project_LWRB/data/37/Tsuolo.csv";
+		String inPathToHumidity = "/Users/marialaura/Dropbox/SWRB/dottorato/OMS_Project_LWRB/data/37/H.csv";
+		String inPathToCI = "/Users/marialaura/Dropbox/SWRB/dottorato/OMS_Project_LWRB/data/37/ClearnessIndex.csv";
 
 		String pathToDownwelling= "resources/output/downwelling_model1.csv";
 		String pathToUpwelling= "resources/output/upwelling_model1.csv";
@@ -44,12 +44,12 @@ public class TestLwrb extends HMTestCase{
 		OmsTimeSeriesIteratorReader CIReader = getTimeseriesReader(inPathToCI, fId, startDate, endDate, timeStepMinutes);
 		
 		OmsShapefileFeatureReader stationsReader = new OmsShapefileFeatureReader();
-		stationsReader.file = "resources/Input/stations.shp";
+		stationsReader.file = "/Users/marialaura/Dropbox/SWRB/dottorato/OMS_Project_LWRB/data/37/stazioni_tagliate.shp";
 		stationsReader.readFeatureCollection();
 		SimpleFeatureCollection stationsFC = stationsReader.geodata;
 		
 		OmsRasterReader SKYreader = new OmsRasterReader();
-		SKYreader.file = "resources/Input/skyview.asc";
+		SKYreader.file = "/Users/marialaura/Dropbox/SWRB/dottorato/OMS_Project_LWRB/data/37/skyview.asc";
 		SKYreader.fileNovalue = -9999.0;
 		SKYreader.geodataNovalue = Double.NaN;
 		SKYreader.process();
@@ -77,9 +77,8 @@ public class TestLwrb extends HMTestCase{
 
 		while( airTReader.doProcess  ) { 
 
-			lwrb.X=-83.89;
-			lwrb.Y=1.02;
-			lwrb.model="7";
+			lwrb.X=5.31;
+			lwrb.model="3";
 			lwrb.epsilonS=0.98;
 			lwrb.A_Cloud=0;
 			lwrb.B_Cloud=1;

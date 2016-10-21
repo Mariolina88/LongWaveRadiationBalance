@@ -19,7 +19,6 @@
 package lwrbPointCase;
 
 
-
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.FeatureIterator;

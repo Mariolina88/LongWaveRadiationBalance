@@ -29,13 +29,13 @@ public class TestLwrb{
 		PrintStreamProgressMonitor pm = new PrintStreamProgressMonitor(System.out, System.out);
 
 
-		String inPathToAirT = "resources/input/Taria.csv";
-		String inPathToSoilT = "resources/input/Tsuolo.csv";
-		String inPathToHumidity = "resources/input/H.csv";
-		String inPathToCI = "resources/input/ClearnessIndex.csv";
+		String inPathToAirT = "resources/Input/Taria.csv";
+		String inPathToSoilT = "resources/Input/Tsuolo.csv";
+		String inPathToHumidity = "resources/Input/H.csv";
+		String inPathToCI = "resources/Input/ClearnessIndex.csv";
 
-		String pathToDownwelling= "resources/output/downwelling.csv";
-		String pathToUpwelling= "resources/output/upwelling.csv";
+		String pathToDownwelling= "resources/Output/downwelling.csv";
+		String pathToUpwelling= "resources/Output/upwelling.csv";
 
 
 		OmsTimeSeriesIteratorReader airTReader = getTimeseriesReader(inPathToAirT, fId, startDate, endDate, timeStepMinutes);

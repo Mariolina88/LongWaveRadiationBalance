@@ -249,7 +249,8 @@ public class Lwrb extends JGTModel {
 			if (inHumidityValues != null)
 				humidity = inHumidityValues.get(idStations[i])[0];
 
-			clearnessIndex = inClearnessIndexValues.get(idStations[i])[0];
+			clearnessIndex=1;
+			if (inClearnessIndexValues != null) clearnessIndex = inClearnessIndexValues.get(idStations[i])[0];
 			if (isNovalue(clearnessIndex )) clearnessIndex = 1;
 
 			double skyviewvalue=skyviewfactorWR.getSampleDouble(columnStation.get(i), rowStation.get(i),0);

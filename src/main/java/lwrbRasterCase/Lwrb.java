@@ -16,23 +16,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package lwrbPointCase;
+package lwrbRasterCase;
 
 
 import org.geotools.coverage.grid.GridCoverage2D;
-import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.feature.FeatureIterator;
-import org.geotools.feature.SchemaException;
-import org.geotools.geometry.DirectPosition2D;
+import org.geotools.coverage.grid.GridGeometry2D;
 import org.jgrasstools.gears.libs.modules.JGTConstants;
 
 import java.awt.image.RenderedImage;
 import java.awt.image.WritableRaster;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 
+import javax.media.jai.iterator.RandomIterFactory;
+import javax.media.jai.iterator.WritableRandomIter;
 
 import static org.jgrasstools.gears.libs.modules.JGTConstants.isNovalue;
 import oms3.annotations.Author;
@@ -49,14 +45,12 @@ import oms3.annotations.Status;
 import oms3.annotations.Unit;
 
 import org.jgrasstools.gears.libs.modules.JGTModel;
+import org.jgrasstools.gears.utils.RegionMap;
 import org.jgrasstools.gears.utils.coverage.CoverageUtilities;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.geometry.DirectPosition;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
+
 
 import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.Geometry;
+
 
 
 
@@ -72,21 +66,36 @@ import com.vividsolutions.jts.geom.Geometry;
 public class Lwrb extends JGTModel {
 
 
+	@Description("The map of the interpolated air temperature.")
+	@In
+	public GridCoverage2D inAirTempGrid;
+	
+	
+	@Description("The map of the soil temprature.")
+	@In
+	public GridCoverage2D inSoilTempGrid;
+	
+	@Description("The map of the interpolated humidity.")
+	@In
+	public GridCoverage2D inHumidityGrid;
+	
+	
+	@Description("The map of the interpolated CI.")
+	@In
+	public GridCoverage2D inCIGrid;
+	
+	
+	
+	
 	@Description("Air temperature input value")
 	@Unit("°C")
 	double airTemperature;
 
-	@Description("Air temperature input Hashmap")
-	@In
-	public HashMap<Integer, double[]> inAirTemperatureValues;
 
 	@Description("Soil temperature input value") 
 	@Unit("°C")
 	double soilTemperature;
 
-	@Description("Soil temprature input Hashmap")
-	@In
-	public HashMap<Integer, double[]> inSoilTempratureValues;
 
 	@Description("Humidity input value") 
 	@Unit("%")
@@ -95,21 +104,15 @@ public class Lwrb extends JGTModel {
 	@Description("Reference humidity")
 	private static final double pRH = 0.7;
 
-	@Description("Humidity input Hashmap")
-	@In
-	public HashMap<Integer, double[]> inHumidityValues;
 
 	@Description("Clearness index input value") 
 	@Unit("[0,1]")
 	double clearnessIndex;
 
-	@Description("Clearness index input Hashmap")
-	@In
-	public HashMap<Integer, double[]> inClearnessIndexValues;
 
 	@Description("The map of the skyview factor")
 	@In
-	public GridCoverage2D inSkyview;
+	public GridCoverage2D inSkyviewGrid;
 	WritableRaster skyviewfactorWR;
 
 	@Description("X parameter of the literature formulation")
@@ -124,8 +127,6 @@ public class Lwrb extends JGTModel {
 	@In
 	public double Z;
 
-	@Description("the linked HashMap with the coordinate of the stations")
-	LinkedHashMap<Integer, Coordinate> stationCoordinates;
 
 	@Description("Soil emissivity")
 	@Unit("-")
@@ -160,36 +161,33 @@ public class Lwrb extends JGTModel {
 	@Description("It is needed as index of the time step")
 	int step;
 
-	@Description("The shape file with the station measuremnts")
-	@In
-	public SimpleFeatureCollection inStations;
-
-	@Description("The name of the field containing the ID of the station in the shape file")
-	@In
-	public String fStationsid;
-	
-	@Description("List of the indeces of the columns of the station in the map")
-	ArrayList <Integer> columnStation= new ArrayList <Integer>();
-
-	@Description("List of the indeces of the rows of the station in the map")
-	ArrayList <Integer> rowStation= new ArrayList <Integer>();
-	
-	@Description(" The vetor containing the id of the station")
-	Object []idStations;
 
 	@Description("Stefan-Boltzaman costant")
 	private static final double ConstBoltz = 5.670373 * Math.pow(10, -8);
-
-	@Description("The output downwelling Hashmap")
+	
+	
+	@Description("The output downwelling map")
 	@Out
-	public HashMap<Integer, double[]> outHMlongwaveDownwelling= new HashMap<Integer, double[]>();;
-
-	@Description("The output upwelling Hashmap")
+	public GridCoverage2D outLongwaveDownwellingGrid;
+	
+	
+	@Description("The output upwelling map")
 	@Out
-	public HashMap<Integer, double[]> outHMlongwaveUpwelling= new HashMap<Integer, double[]>();;
-
+	public GridCoverage2D outLongwaveUpwellingGrid;
 
 	Model modelCS;
+	WritableRaster airTemperatureMap;
+	WritableRaster soilTemperatureMap;
+	WritableRaster humidityMap;
+	WritableRaster CIMap;
+	
+	int cols;
+	int rows;
+	double dx;
+	RegionMap regionMap;
+	
+	@Description("the linked HashMap with the coordinate of the stations")
+	LinkedHashMap<Integer, Coordinate> stationCoordinates;
 
 
 
@@ -202,58 +200,52 @@ public class Lwrb extends JGTModel {
 	public void process() throws Exception {
 
 		if(step==0){
-			RenderedImage inSkyviewRenderedImage = inSkyview.getRenderedImage();
-			skyviewfactorWR = CoverageUtilities.replaceNovalue(inSkyviewRenderedImage, -9999.0);
-			inSkyviewRenderedImage = null;
+			
+			airTemperatureMap=mapsTransform(inAirTempGrid);
+			soilTemperatureMap=mapsTransform(inSoilTempGrid);
+			if (CIMap!= null) CIMap=mapsTransform(inCIGrid);
+			if (humidityMap!= null) humidityMap=mapsTransform(inHumidityGrid);
+			skyviewfactorWR =mapsTransform(inSkyviewGrid);
 
-			// starting from the shp file containing the stations, get the coordinate
-			//of each station
-			stationCoordinates = getCoordinate(inStations, fStationsid);
+			// get the dimension of the maps
+			regionMap = CoverageUtilities.getRegionParamsFromGridCoverage(inSkyviewGrid);
+			cols = regionMap.getCols();
+			rows = regionMap.getRows();
+			dx=regionMap.getXres();
 		}
-
-		// computing the reference system of the input DEM
-		CoordinateReferenceSystem sourceCRS = inSkyview.getCoordinateReferenceSystem2D();
-		//  from pixel coordinates (in coverage image) to geographic coordinates (in coverage CRS)
-		MathTransform transf = inSkyview.getGridGeometry().getCRSToGrid2D();
-
-
-		//create the set of the coordinate of the station, so we can 
-		//iterate over the set			
-		Iterator<Integer> idIterator = stationCoordinates.keySet().iterator();
 		
-		// trasform the list of idStation into an array
-		idStations= stationCoordinates.keySet().toArray();
+		WritableRaster outDownwellingWritableRaster = CoverageUtilities.createDoubleWritableRaster(cols, rows, null, null, null);
+		WritableRaster outUpwellingWritableRaster =CoverageUtilities.createDoubleWritableRaster(cols, rows, null, null, null); 
+	
+
+		WritableRandomIter downwellingIter = RandomIterFactory.createWritable(outDownwellingWritableRaster, null);       
+		WritableRandomIter upwellingIter = RandomIterFactory.createWritable(outUpwellingWritableRaster, null);		
 
 
-		// iterate over the list of the stations and detect their position in the map
-		for (int i=0;i<idStations.length;i++){
 
-			// compute the coordinate of the station from the linked hashMap
-			Coordinate coordinate = (Coordinate) stationCoordinates.get(idIterator.next());
+		// get the geometry of the maps and the coordinates of the stations
+		GridGeometry2D inSkyGridGeo = inSkyviewGrid.getGridGeometry();
+		stationCoordinates = getCoordinate(inSkyGridGeo);
+		
+		
+		// iterate over the entire domain and compute for each pixel the SWE
+		for( int r = 1; r < rows - 1; r++ ) {
+			for( int c = 1; c < cols - 1; c++ ) {
 
-			// define the position, according to the CRS, of the station in the map
-			DirectPosition point = new DirectPosition2D(sourceCRS, coordinate.x, coordinate.y);
+			airTemperature=airTemperatureMap.getSampleDouble(c, r, 0);
 
-			// trasform the position in two the indices of row and column 
-			DirectPosition gridPoint = transf.transform(point, null);
-
-			// add the indices to a list
-			columnStation.add((int) gridPoint.getCoordinate()[0]);
-			rowStation.add((int) gridPoint.getCoordinate()[1]);
-
-			airTemperature=inAirTemperatureValues.get(idStations[i])[0];
-
-			soilTemperature = inSoilTempratureValues.get(idStations[i])[0];
+			soilTemperature = soilTemperatureMap.getSampleDouble(c, r, 0);
 
 			humidity= pRH;
-			if (inHumidityValues != null)
-				humidity = inHumidityValues.get(idStations[i])[0];
+			if (humidityMap!= null)
+				humidity = humidityMap.getSampleDouble(c, r, 0);
+			if(isNovalue(humidity)) humidity=pRH;
 
 			clearnessIndex = 1;
-			if (inClearnessIndexValues != null) clearnessIndex = inClearnessIndexValues.get(idStations[i])[0];
+			if (CIMap != null) clearnessIndex = CIMap.getSampleDouble(c, r, 0);
 			if (isNovalue(clearnessIndex )) clearnessIndex = 1;
 
-			double skyviewvalue=skyviewfactorWR.getSampleDouble(columnStation.get(i), rowStation.get(i),0);
+			double skyviewvalue=skyviewfactorWR.getSampleDouble(c, r, 0);
 
 			/**Computation of the downwelling, upwelling and longwave:
 			 * if there is no value in the input data, there will be no value also in
@@ -270,41 +262,58 @@ public class Lwrb extends JGTModel {
 			downwellingALLSKY=(downwellingALLSKY<0)? Double.NaN:downwellingALLSKY;
 			downwellingALLSKY=(downwellingALLSKY>2000)? Double.NaN:downwellingALLSKY;
 			
-
-
-			/**Store results in Hashmaps*/
-			storeResult((Integer)idStations[i],downwellingALLSKY,upwelling);
+			downwellingIter.setSample(c, r, 0,downwellingALLSKY);
+			upwellingIter.setSample(c, r, 0,upwelling);
+			}
 		}
+		
+		CoverageUtilities.setNovalueBorder(outDownwellingWritableRaster);
+		CoverageUtilities.setNovalueBorder(outUpwellingWritableRaster);	
+
+		
+
+		outLongwaveDownwellingGrid = CoverageUtilities.buildCoverage("Downwelling", outDownwellingWritableRaster, 
+				regionMap, inSkyviewGrid.getCoordinateReferenceSystem());
+		outLongwaveUpwellingGrid= CoverageUtilities.buildCoverage("Upwelling", outUpwellingWritableRaster, 
+				regionMap, inSkyviewGrid.getCoordinateReferenceSystem());
+
 		step++;
 	}
 
-
+	
 	/**
-	 * Gets the coordinate given the shp file and the field name in the shape with the coordinate of the station.
+	 * Gets the coordinate of each pixel of the given map.
 	 *
-	 * @param collection is the shp file with the stations
-	 * @param idField is the name of the field with the id of the stations 
-	 * @return the coordinate of each station
-	 * @throws Exception the exception in a linked hash map
+	 * @param GridGeometry2D grid is the map 
+	 * @return the coordinate of each point
 	 */
-	private LinkedHashMap<Integer, Coordinate> getCoordinate(SimpleFeatureCollection collection, String idField)
-			throws Exception {
-		LinkedHashMap<Integer, Coordinate> id2CoordinatesMap = new LinkedHashMap<Integer, Coordinate>();
-		FeatureIterator<SimpleFeature> iterator = collection.features();
-		Coordinate coordinate = null;
-		try {
-			while (iterator.hasNext()) {
-				SimpleFeature feature = iterator.next();
-				int stationNumber = ((Number) feature.getAttribute(idField)).intValue();
-				coordinate = ((Geometry) feature.getDefaultGeometry()).getCentroid().getCoordinate();
-				id2CoordinatesMap.put(stationNumber, coordinate);
+	private LinkedHashMap<Integer, Coordinate> getCoordinate(GridGeometry2D grid) {
+		LinkedHashMap<Integer, Coordinate> out = new LinkedHashMap<Integer, Coordinate>();
+		int count = 0;
+		RegionMap regionMap = CoverageUtilities.gridGeometry2RegionParamsMap(grid);
+		double cols = regionMap.getCols();
+		double rows = regionMap.getRows();
+		double south = regionMap.getSouth();
+		double west = regionMap.getWest();
+		double xres = regionMap.getXres();
+		double yres = regionMap.getYres();
+		double northing = south;
+		double easting = west;
+		for (int i = 0; i < cols; i++) {
+			easting = easting + xres;
+			for (int j = 0; j < rows; j++) {
+				northing = northing + yres;
+				Coordinate coordinate = new Coordinate();
+				coordinate.x = west + i * xres;
+				coordinate.y = south + j * yres;
+				out.put(count, coordinate);
+				count++;
 			}
-		} finally {
-			iterator.close();
 		}
 
-		return id2CoordinatesMap;
+		return out;
 	}
+
 
 	/**
 	 * Compute upwelling longwave radiation .
@@ -351,20 +360,19 @@ public class Lwrb extends JGTModel {
 
 	}
 
-
+	
 	/**
-	 * Store result in given hashpmaps.
+	 * Maps reader transform the GrifCoverage2D in to the writable raster and
+	 * replace the -9999.0 value with no value.
 	 *
-	 * @param downwellingALLSKY: the downwelling radiation in all sky conditions
-	 * @param upwelling: the upwelling radiation
-	 * @param longwave: the longwave radiation
-	 * @throws SchemaException 
+	 * @param inValues: the input map values
+	 * @return the writable raster of the given map
 	 */
-	private void storeResult(int ID,double downwellingALLSKY, double upwelling) 
-			throws SchemaException {
-
-		outHMlongwaveDownwelling.put(ID, new double[]{downwellingALLSKY});
-		outHMlongwaveUpwelling.put(ID, new double[]{upwelling});
+	private WritableRaster mapsTransform  ( GridCoverage2D inValues){	
+		RenderedImage inValuesRenderedImage = inValues.getRenderedImage();
+		WritableRaster inValuesWR = CoverageUtilities.replaceNovalue(inValuesRenderedImage, -9999.0);
+		inValuesRenderedImage = null;
+		return inValuesWR;
 	}
 
 

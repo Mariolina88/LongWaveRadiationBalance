@@ -15,7 +15,7 @@ import org.junit.Test;
 import lwrbPointCase.*;
 
 
-public class TestLwrb{
+public class TestLwrbPointCase{
 
 	@Test
 	public void TestLwrb() throws Exception {
